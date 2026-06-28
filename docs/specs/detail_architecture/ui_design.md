@@ -36,6 +36,6 @@
 
 ## 5. アセット管理方針
 - **画像不要**: アイコンはすべて `lucide-react` のカスタマイズ、またはインラインSVGで実装。
-- **フォント**: 
+- **フォント**:
   - UI文字: `'Inter', sans-serif`
   - 数字・タイマー: `'JetBrains Mono', monospace`
