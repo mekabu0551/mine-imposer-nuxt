@@ -10,7 +10,7 @@
 
 .gemini/
 ├── instructions.md         # [全体的ルール] エージェントの振る舞い・禁止事項・TDD厳守の指示
-├── specs/ 
+├── specs/
 │   ├── detail_architecture/  # ディレクトリ配下に詳細設計を追記
 │   │   ├── feature_list.md
 │   │   └── screen_specifications.md
