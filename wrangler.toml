@@ -1,0 +1,12 @@
+name = "mine-imposer-server"
+main = "server/index.ts"
+compatibility_date = "2025-07-15"
+
+[durable_objects]
+bindings = [
+  { name = "GAME_SERVER", class_name = "MineImposerGame" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["MineImposerGame"]

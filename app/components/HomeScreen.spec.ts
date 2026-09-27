@@ -17,30 +17,30 @@ describe("HomeScreen.vue", () => {
 
   it("allows username editing", async () => {
     const wrapper = mount(HomeScreen);
-    
+
     // 最初は編集モードではない
     expect(wrapper.find("input").exists()).toBe(false);
-    
+
     // 編集ボタンをクリック
     const editBtn = wrapper.find('[data-testid="edit-username-btn"]');
     await editBtn.trigger("click");
-    
+
     // 入力欄が表示される
     const input = wrapper.find("input");
     expect(input.exists()).toBe(true);
-    
+
     // 新しいユーザー名を入力して保存
     await input.setValue("NewPlayer");
     const saveBtn = wrapper.find('[data-testid="save-username-btn"]');
     await saveBtn.trigger("click");
-    
+
     // user の値が更新されたことを検証
     expect(user.value.username).toBe("NewPlayer");
   });
 
   it("emits match selection events", async () => {
     const wrapper = mount(HomeScreen);
-    
+
     const randomMatchBtn = wrapper.find('[data-testid="random-match-btn"]');
     await randomMatchBtn.trigger("click");
     expect(wrapper.emitted("select-mode")).toBeTruthy();
