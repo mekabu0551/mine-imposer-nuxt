@@ -1,14 +1,18 @@
 import { ref } from "vue";
 
 interface UserState {
+  id: string;
   username: string;
   rating: number;
   wins: number;
   losses: number;
 }
 
+const generateId = () => `user_${Math.random().toString(36).substring(2, 10)}`;
+
 // 複数個所で同じステートを共有するため、関数の外で定義する
 const user = ref<UserState>({
+  id: generateId(),
   username: `Guest_${Math.floor(1000 + Math.random() * 9000)}`,
   rating: 1500,
   wins: 0,
@@ -33,6 +37,7 @@ export function useUser() {
 
   const resetUser = () => {
     user.value = {
+      id: generateId(),
       username: `Guest_${Math.floor(1000 + Math.random() * 9000)}`,
       rating: 1500,
       wins: 0,

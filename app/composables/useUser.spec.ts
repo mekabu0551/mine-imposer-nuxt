@@ -11,6 +11,7 @@ describe("useUser composable", () => {
   it("should initialize user state with default values", () => {
     const { user } = useUser();
     expect(user.value).toBeDefined();
+    expect(user.value.id).toMatch(/^user_/);
     expect(user.value.username).toMatch(/^Guest_\d+/);
     expect(user.value.rating).toBe(1500);
     expect(user.value.wins).toBe(0);
