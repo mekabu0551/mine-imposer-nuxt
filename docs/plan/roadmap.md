@@ -41,7 +41,7 @@
         * 検証: ブラウザ上での実機通信確認。
         * コミット: `feat(ui): interactive board with websocket synchronization`
 
-2.  **判定ロジックと連鎖開封**
+2.  **判定ロジックと連鎖開封 [DONE]**
     * 内容: 0マス連鎖・スコア・ライフ計算(Logic)、ActionLogの検証(DO)、サーバー状態との同期(FE)。
     * コミット: `feat(logic): game logic integration and state sync`
 
