@@ -1,5 +1,5 @@
 import { ref, onScopeDispose } from "vue";
-import type { PublicGameState } from "../../shared/game";
+import type { PublicGameState, ActionLogItem } from "../../shared/game";
 
 export interface GamePlayerInfo {
   id: string;
@@ -44,6 +44,8 @@ export function useGameSocket(roomId: string, player: GamePlayerInfo) {
           const data = JSON.parse(event.data);
           if (data.type === "state") {
             gameState.value = data.state;
+          } else if (data.type === "error") {
+            error.value = `${data.code}: ${data.message}`;
           }
         } catch (e) {
           console.error("Failed to parse websocket message:", e);
@@ -87,6 +89,17 @@ export function useGameSocket(roomId: string, player: GamePlayerInfo) {
     }
   };
 
+  const commit = (actions: ActionLogItem[]) => {
+    if (socket && isConnected.value) {
+      socket.send(
+        JSON.stringify({
+          type: "commit",
+          actions,
+        }),
+      );
+    }
+  };
+
   const disconnect = () => {
     if (socket) {
       socket.close();
@@ -106,6 +119,7 @@ export function useGameSocket(roomId: string, player: GamePlayerInfo) {
     connect,
     openCell,
     toggleFlag,
+    commit,
     disconnect,
   };
 }

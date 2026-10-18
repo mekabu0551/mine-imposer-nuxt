@@ -124,4 +124,46 @@ describe("useGameSocket Composable", () => {
       col: 6,
     });
   });
+
+  it("should send commit action with action logs", async () => {
+    const { connect, commit } = useGameSocket("room-123", {
+      id: "p1",
+      name: "Player 1",
+    });
+
+    connect("ws://localhost:8787");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const actions = [
+      { type: "flag" as const, row: 1, col: 2, timestamp: 12345 },
+      { type: "open" as const, row: 3, col: 4, timestamp: 12350 },
+    ];
+    commit(actions);
+
+    const ws = MockWebSocketClient.instances[0];
+    const commitMsg = JSON.parse(ws.sent[ws.sent.length - 1]);
+    expect(commitMsg).toEqual({
+      type: "commit",
+      actions,
+    });
+  });
+
+  it("should update error state when error message is received from server", async () => {
+    const { connect, error } = useGameSocket("room-123", {
+      id: "p1",
+      name: "Player 1",
+    });
+
+    connect("ws://localhost:8787");
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    const ws = MockWebSocketClient.instances[0];
+    ws.receiveMessage({
+      type: "error",
+      code: "TURN_TIMEOUT_EXCEEDED",
+      message: "Action delayed",
+    });
+
+    expect(error.value).toBe("TURN_TIMEOUT_EXCEEDED: Action delayed");
+  });
 });

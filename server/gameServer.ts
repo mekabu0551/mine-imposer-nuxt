@@ -9,6 +9,7 @@ export class MineImposerGame {
   private sessions: Map<WebSocket, SessionMeta> = new Map();
   private joinedPlayers: { id: string; name: string }[] = [];
   private game: Game | null = null;
+  private turnStartTime: number = Date.now();
 
   constructor(
     private state?: any,
@@ -55,6 +56,9 @@ export class MineImposerGame {
           case "flag":
             this.handleFlag(meta, data.row, data.col);
             break;
+          case "commit":
+            this.handleCommit(ws, meta, data.actions);
+            break;
         }
       } catch (err) {
         console.error("Error handling message:", err);
@@ -80,6 +84,7 @@ export class MineImposerGame {
     if (this.joinedPlayers.length === 2 && !this.game) {
       const [p1, p2] = this.joinedPlayers;
       this.game = new Game(p1.id, p1.name, p2.id, p2.name, 40);
+      this.turnStartTime = Date.now();
       this.broadcastState();
     } else if (this.game) {
       // 既にゲーム開始済み
@@ -112,12 +117,39 @@ export class MineImposerGame {
   private handleOpen(meta: SessionMeta, row: number, col: number) {
     if (!this.game || !meta.playerId) return;
     this.game.openCell(meta.playerId, row, col);
+    this.turnStartTime = Date.now();
     this.broadcastState();
   }
 
   private handleFlag(meta: SessionMeta, row: number, col: number) {
     if (!this.game || !meta.playerId) return;
     this.game.toggleFlag(meta.playerId, row, col);
+    this.broadcastState();
+  }
+
+  private handleCommit(ws: WebSocket, meta: SessionMeta, actions: any[]) {
+    if (!this.game || !meta.playerId) return;
+
+    const result = this.game.applyCommit(
+      {
+        playerId: meta.playerId,
+        actions: actions || [],
+      },
+      this.turnStartTime,
+    );
+
+    if (!result.success) {
+      ws.send(
+        JSON.stringify({
+          type: "error",
+          code: result.error,
+          message: "Commit validation failed: " + result.error,
+        }),
+      );
+      return;
+    }
+
+    this.turnStartTime = Date.now();
     this.broadcastState();
   }
 
@@ -131,5 +163,10 @@ export class MineImposerGame {
     if (!this.game || !meta.playerId) return;
     const publicState = this.game.getPublicState(meta.playerId);
     ws.send(JSON.stringify({ type: "state", state: publicState }));
+  }
+
+  // テスト用
+  public getGame(): Game | null {
+    return this.game;
   }
 }

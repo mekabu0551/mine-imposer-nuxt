@@ -140,17 +140,16 @@ describe("Game core logic", () => {
     // 爆弾のある (0,3) は開いていないこと
     expect(state.board[0][3].isOpen).toBe(false);
 
-    // スコアは開いた安全なマスの数だけ加算されるか？
-    // ルール「安全なら+1点」
-    // 連鎖で開いたすべてのマス（自分＋連鎖分）について、開けたプレイヤーにポイントが入る設計にする。
-    // 開いたマスの数をカウント
+    // 仕様書: 直接クリック+1点、オートオープン(連鎖)0点
+    expect(state.players[0].score).toBe(1);
+    // ただし盤面は複数マス開いていること
     let openCount = 0;
     for (let r = 0; r < 16; r++) {
       for (let c = 0; c < 16; c++) {
         if (state.board[r][c].isOpen) openCount++;
       }
     }
-    expect(state.players[0].score).toBe(openCount);
+    expect(openCount).toBeGreaterThan(1);
   });
 
   it("should toggle flag for a player", () => {
@@ -272,5 +271,96 @@ describe("Game core logic", () => {
     // 開封済みマスは neighborBombs が取得できること
     expect(cell11.neighborBombs).toBeDefined();
     expect(cell11.isBomb).toBe(false);
+  });
+
+  describe("applyCommit logic", () => {
+    it("should sequentially apply valid actions in a commit", () => {
+      const now = Date.now();
+      const mockBoard = Array.from({ length: 16 }, (_, r) =>
+        Array.from({ length: 16 }, (_, c) => ({
+          row: r,
+          col: c,
+          isBomb: false,
+          isOpen: false,
+          neighborBombs: 0,
+        })),
+      );
+      mockBoard[0][1].isBomb = true;
+      game.setMockBoard(mockBoard);
+
+      const commitResult = game.applyCommit(
+        {
+          playerId: p1Id,
+          actions: [
+            { type: "flag", row: 0, col: 1, timestamp: now + 100 },
+            { type: "open", row: 0, col: 0, timestamp: now + 500 },
+          ],
+        },
+        now, // serverTurnStartTime
+      );
+
+      expect(commitResult.success).toBe(true);
+      expect(commitResult.hitBomb).toBe(false);
+
+      const state = game.getState();
+      expect(state.flags[p1Id]).toContain("0,1");
+      expect(state.board[0][0].isOpen).toBe(true);
+      expect(state.players[0].score).toBe(1);
+      expect(state.currentTurnPlayerId).toBe(p2Id); // ターン交代
+    });
+
+    it("should reject commit with actions exceeding time limit (anti-cheat)", () => {
+      const serverTurnStartTime = 1000;
+      // 10秒制限 + 2秒マージン = 12000ms を超えるタイムスタンプ (1000 + 13000 = 14000)
+      const commitResult = game.applyCommit(
+        {
+          playerId: p1Id,
+          actions: [{ type: "open", row: 0, col: 0, timestamp: 14000 }],
+        },
+        serverTurnStartTime,
+      );
+
+      expect(commitResult.success).toBe(false);
+      expect(commitResult.error).toBe("TURN_TIMEOUT_EXCEEDED");
+
+      // 盤面は変更されていないこと
+      const state = game.getState();
+      expect(state.board[0][0].isOpen).toBe(false);
+    });
+
+    it("should halt actions immediately upon hitting a bomb in commit", () => {
+      const now = Date.now();
+      const mockBoard = Array.from({ length: 16 }, (_, r) =>
+        Array.from({ length: 16 }, (_, c) => ({
+          row: r,
+          col: c,
+          isBomb: false,
+          isOpen: false,
+          neighborBombs: 0,
+        })),
+      );
+      mockBoard[0][0].isBomb = true;
+      game.setMockBoard(mockBoard);
+
+      const commitResult = game.applyCommit(
+        {
+          playerId: p1Id,
+          actions: [
+            { type: "open", row: 0, col: 0, timestamp: now + 100 }, // 爆弾
+            { type: "open", row: 1, col: 1, timestamp: now + 200 }, // 次のマス
+          ],
+        },
+        now,
+      );
+
+      expect(commitResult.success).toBe(true);
+      expect(commitResult.hitBomb).toBe(true);
+
+      const state = game.getState();
+      expect(state.board[0][0].isOpen).toBe(true);
+      expect(state.board[1][1].isOpen).toBe(false); // 爆弾でターン中断のため開いていない
+      expect(state.players[0].lives).toBe(2);
+      expect(state.currentTurnPlayerId).toBe(p2Id);
+    });
   });
 });

@@ -157,4 +157,76 @@ describe("MineImposerGame Durable Object", () => {
     const p2Msg = serverWs2.getLastMessage();
     expect(p2Msg.state.board[2][3].isFlagged).toBe(false);
   });
+
+  it("should handle commit message and broadcast updated state", async () => {
+    const [clientWs1, serverWs1] = createMockWebSocketPair();
+    const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+    gameServer.handleSession(serverWs1 as any);
+    gameServer.handleSession(serverWs2 as any);
+
+    clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+    clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+    // テスト用に決定論的なモック盤面を設定
+    const mockBoard = Array.from({ length: 16 }, (_, r) =>
+      Array.from({ length: 16 }, (_, c) => ({
+        row: r,
+        col: c,
+        isBomb: false,
+        isOpen: false,
+        neighborBombs: 0,
+      })),
+    );
+    mockBoard[0][1].isBomb = true; // (0,1) が爆弾なので (0,0) は 1 となり連鎖しない
+    mockBoard[15][15].isBomb = true;
+    gameServer.getGame()!.setMockBoard(mockBoard);
+
+    // p1 が commit を送信
+    clientWs1.send(
+      JSON.stringify({
+        type: "commit",
+        actions: [
+          { type: "flag", row: 1, col: 1, timestamp: Date.now() },
+          { type: "open", row: 0, col: 0, timestamp: Date.now() },
+        ],
+      }),
+    );
+
+    const p1Msg = serverWs1.getLastMessage();
+    expect(p1Msg.type).toBe("state");
+    expect(p1Msg.state.board[1][1].isFlagged).toBe(true);
+    expect(p1Msg.state.board[0][0].isOpen).toBe(true);
+    // スコアは直接クリックの1点加算
+    expect(p1Msg.state.players[0].score).toBe(1);
+
+    // p2 にも最新ステートが届くが、フラグは見えない
+    const p2Msg = serverWs2.getLastMessage();
+    expect(p2Msg.type).toBe("state");
+    expect(p2Msg.state.board[1][1].isFlagged).toBe(false);
+    expect(p2Msg.state.board[0][0].isOpen).toBe(true);
+  });
+
+  it("should reject delayed commit and notify sender with error", async () => {
+    const [clientWs1, serverWs1] = createMockWebSocketPair();
+    const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+    gameServer.handleSession(serverWs1 as any);
+    gameServer.handleSession(serverWs2 as any);
+
+    clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+    clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+    // 遅延したタイムスタンプ (+20000ms)
+    clientWs1.send(
+      JSON.stringify({
+        type: "commit",
+        actions: [{ type: "open", row: 0, col: 0, timestamp: Date.now() + 20000 }],
+      }),
+    );
+
+    const errorMsg = serverWs1.getLastMessage();
+    expect(errorMsg.type).toBe("error");
+    expect(errorMsg.code).toBe("TURN_TIMEOUT_EXCEEDED");
+  });
 });

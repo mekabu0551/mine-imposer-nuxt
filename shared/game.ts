@@ -40,6 +40,24 @@ export interface PublicGameState {
   yourPlayerId: string;
 }
 
+export interface ActionLogItem {
+  type: "open" | "flag";
+  row: number;
+  col: number;
+  timestamp: number;
+}
+
+export interface CommitPayload {
+  playerId: string;
+  actions: ActionLogItem[];
+}
+
+export interface CommitResult {
+  success: boolean;
+  hitBomb: boolean;
+  error?: string;
+}
+
 export class Game {
   private board: Cell[][] = [];
   private players: [Player, Player];
@@ -225,7 +243,8 @@ export class Game {
         }
       }
 
-      activePlayer.score += openedCount;
+      // 直接クリックした安全なマスに対して+1点（オートオープン連鎖は0点）
+      activePlayer.score += 1;
 
       // ゲーム終了判定（すべての安全なマスが開かれたか）
       if (this.checkAllSafeOpened()) {
@@ -243,6 +262,47 @@ export class Game {
 
       return { success: true, hitBomb: false };
     }
+  }
+
+  public applyCommit(
+    payload: CommitPayload,
+    serverTurnStartTime: number,
+    timeLimitMs: number = 10000,
+    marginMs: number = 2000,
+  ): CommitResult {
+    if (this.status !== "playing") {
+      return { success: false, hitBomb: false, error: "GAME_NOT_PLAYING" };
+    }
+    if (payload.playerId !== this.currentTurnPlayerId) {
+      return { success: false, hitBomb: false, error: "INVALID_TURN_PLAYER" };
+    }
+
+    const maxAllowedTime = serverTurnStartTime + timeLimitMs + marginMs;
+
+    // 遅延検証: アクションのタイムスタンプが制限時間を超過しているか事前にチェック
+    for (const action of payload.actions) {
+      if (action.timestamp > maxAllowedTime) {
+        return { success: false, hitBomb: false, error: "TURN_TIMEOUT_EXCEEDED" };
+      }
+    }
+
+    // 順次アクションを適用
+    for (const action of payload.actions) {
+      if (action.type === "flag") {
+        this.toggleFlag(payload.playerId, action.row, action.col);
+      } else if (action.type === "open") {
+        const result = this.openCell(payload.playerId, action.row, action.col);
+        if (!result.success) {
+          continue;
+        }
+        if (result.hitBomb) {
+          // 爆弾を踏んだ場合は即時中断
+          return { success: true, hitBomb: true };
+        }
+      }
+    }
+
+    return { success: true, hitBomb: false };
   }
 
   public toggleFlag(playerId: string, row: number, col: number) {

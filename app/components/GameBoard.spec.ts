@@ -100,4 +100,34 @@ describe("GameBoard Component", () => {
     const cell = wrapper.find('[data-testid="cell-3-3"]');
     expect(cell.classes()).toContain("is-flagged");
   });
+
+  it("should render multiple opened cells from cascade open", () => {
+    const gameState = createMockGameState();
+    gameState.board[0][0].isOpen = true;
+    gameState.board[0][0].neighborBombs = 0;
+    gameState.board[0][1].isOpen = true;
+    gameState.board[0][1].neighborBombs = 1;
+    gameState.board[1][0].isOpen = true;
+    gameState.board[1][0].neighborBombs = 1;
+
+    const wrapper = mount(GameBoard, {
+      props: { gameState },
+    });
+
+    expect(wrapper.find('[data-testid="cell-0-0"]').attributes("disabled")).toBeDefined();
+    expect(wrapper.find('[data-testid="cell-0-1"]').text()).toContain("1");
+    expect(wrapper.find('[data-testid="cell-1-0"]').text()).toContain("1");
+  });
+
+  it("should show victory status when game is finished", () => {
+    const gameState = createMockGameState();
+    gameState.status = "finished";
+    gameState.winnerId = "p1";
+
+    const wrapper = mount(GameBoard, {
+      props: { gameState },
+    });
+
+    expect(wrapper.text()).toContain("VICTORY");
+  });
 });

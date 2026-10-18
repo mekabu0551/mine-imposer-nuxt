@@ -29,6 +29,36 @@ const isMyTurn = computed(() => {
   return props.gameState.currentTurnPlayerId === props.gameState.yourPlayerId;
 });
 
+const isFinished = computed(() => props.gameState.status === "finished");
+
+const statusBadgeText = computed(() => {
+  if (isFinished.value) {
+    if (props.gameState.winnerId === props.gameState.yourPlayerId) {
+      return "VICTORY";
+    }
+    if (props.gameState.winnerId) {
+      return "DEFEAT";
+    }
+    return "DRAW";
+  }
+  return isMyTurn.value ? "YOUR TURN" : "OPPONENT TURN";
+});
+
+const statusBadgeClass = computed(() => {
+  if (isFinished.value) {
+    if (props.gameState.winnerId === props.gameState.yourPlayerId) {
+      return "bg-[#3FB950]/30 border-[#3FB950] text-[#3FB950] crt-glow";
+    }
+    if (props.gameState.winnerId) {
+      return "bg-[#E74C3C]/30 border-[#E74C3C] text-[#E74C3C]";
+    }
+    return "bg-[#F1C40F]/30 border-[#F1C40F] text-[#F1C40F]";
+  }
+  return isMyTurn.value
+    ? "bg-[#3FB950]/20 border-[#3FB950] text-[#3FB950] crt-glow"
+    : "bg-gray-800/50 border-gray-600 text-gray-400";
+});
+
 const flatCells = computed(() => {
   return props.gameState.board.flat();
 });
@@ -111,15 +141,13 @@ const getNeighborColorClass = (count: number) => {
             </span>
           </div>
         </div>
-        <!-- ターンインジケーター -->
+        <!-- ターン／勝敗インジケーター -->
         <div class="flex flex-col items-center px-4">
           <div
             class="px-4 py-1.5 rounded-full border text-xs font-mono-crt font-bold tracking-wider uppercase transition-all duration-300"
-            :class='isMyTurn
-              ? "bg-[#3FB950]/20 border-[#3FB950] text-[#3FB950] crt-glow"
-              : "bg-gray-800/50 border-gray-600 text-gray-400"'
+            :class="statusBadgeClass"
           >
-            {{ isMyTurn ? "YOUR TURN" : "OPPONENT TURN" }}
+            {{ statusBadgeText }}
           </div>
           <span class="text-[10px] text-gray-500 font-mono-crt mt-1 tracking-widest">
             STATUS: {{ gameState.status.toUpperCase() }}
