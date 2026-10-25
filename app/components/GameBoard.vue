@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import type { PublicGameState, PublicCell } from "../../shared/game";
 
 const props = defineProps<{
@@ -10,6 +10,34 @@ const emit = defineEmits<{
   (e: "open", payload: { row: number; col: number }): void;
   (e: "flag", payload: { row: number; col: number }): void;
 }>();
+
+const currentTime = ref(Date.now());
+let timerInterval: any = null;
+
+onMounted(() => {
+  timerInterval = setInterval(() => {
+    currentTime.value = Date.now();
+  }, 100);
+});
+
+onUnmounted(() => {
+  if (timerInterval) {
+    clearInterval(timerInterval);
+  }
+});
+
+const remainingSeconds = computed(() => {
+  if (!props.gameState.turnStartedAt || !props.gameState.turnDurationMs) {
+    return 10;
+  }
+  const elapsed = Math.max(0, currentTime.value - props.gameState.turnStartedAt);
+  const remainingMs = Math.max(0, props.gameState.turnDurationMs - elapsed);
+  return Math.ceil(remainingMs / 1000);
+});
+
+const isWarning = computed(() => {
+  return remainingSeconds.value <= 3;
+});
 
 const player1 = computed(() => {
   return (
@@ -141,15 +169,29 @@ const getNeighborColorClass = (count: number) => {
             </span>
           </div>
         </div>
-        <!-- ターン／勝敗インジケーター -->
-        <div class="flex flex-col items-center px-4">
+        <!-- ターン／勝敗インジケーター & タイマー -->
+        <div class="flex flex-col items-center px-4 gap-1.5">
           <div
             class="px-4 py-1.5 rounded-full border text-xs font-mono-crt font-bold tracking-wider uppercase transition-all duration-300"
             :class="statusBadgeClass"
           >
             {{ statusBadgeText }}
           </div>
-          <span class="text-[10px] text-gray-500 font-mono-crt mt-1 tracking-widest">
+          <!-- 10秒 権威タイマー -->
+          <div
+            v-if="gameState.status === 'playing'"
+            data-testid="turn-timer"
+            class="flex items-center gap-1.5 font-mono-crt text-xs font-bold tracking-wider px-2 py-0.5 rounded border transition-colors duration-200"
+            :class="[
+              isWarning
+                ? 'timer-warning text-[#E74C3C] border-[#E74C3C]/60 bg-[#E74C3C]/10 animate-pulse crt-glow'
+                : 'text-[#58A6FF] border-[#58A6FF]/40 bg-[#58A6FF]/10',
+            ]"
+          >
+            <span class="text-[10px] text-gray-400">TIME:</span>
+            <span>{{ remainingSeconds }}s</span>
+          </div>
+          <span class="text-[10px] text-gray-500 font-mono-crt tracking-widest">
             STATUS: {{ gameState.status.toUpperCase() }}
           </span>
         </div>
