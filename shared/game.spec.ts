@@ -36,6 +36,8 @@ describe("Game core logic", () => {
 
     // ターン確認
     expect(state.currentTurnPlayerId).toBe(p1Id);
+    expect(state.turnStartedAt).toBeDefined();
+    expect(state.turnDurationMs).toBe(10000);
   });
 
   it("should calculate neighbor bombs correctly", () => {
@@ -361,6 +363,70 @@ describe("Game core logic", () => {
       expect(state.board[1][1].isOpen).toBe(false); // 爆弾でターン中断のため開いていない
       expect(state.players[0].lives).toBe(2);
       expect(state.currentTurnPlayerId).toBe(p2Id);
+    });
+  });
+
+  describe("Timeout handling and turn transitions", () => {
+    it("should deduct life and switch turn on timeout", () => {
+      const initialTurnStart = game.getState().turnStartedAt;
+      const timeoutTime = initialTurnStart + 10000;
+
+      const result = game.handleTimeout(timeoutTime);
+      expect(result.knockout).toBe(false);
+      expect(result.winnerId).toBeNull();
+
+      const state = game.getState();
+      // p1の手番だったためp1のライフが1減る
+      expect(state.players[0].lives).toBe(2);
+      // p2の手番に強制交代する
+      expect(state.currentTurnPlayerId).toBe(p2Id);
+      // タイマー開始時刻が更新される
+      expect(state.turnStartedAt).toBe(timeoutTime);
+    });
+
+    it("should result in knockout defeat when player loses all lives by timeout", () => {
+      // p1が2回タイムアウトでライフ1にする
+      game.handleTimeout(); // p1 timeout -> lives 2, turn p2
+      game.handleTimeout(); // p2 timeout -> lives 2, turn p1
+      game.handleTimeout(); // p1 timeout -> lives 1, turn p2
+      game.handleTimeout(); // p2 timeout -> lives 1, turn p1
+
+      // p1が3回目のタイムアウト -> ライフ0でノックアウト
+      const result = game.handleTimeout();
+      expect(result.knockout).toBe(true);
+      expect(result.winnerId).toBe(p2Id);
+
+      const state = game.getState();
+      expect(state.players[0].lives).toBe(0);
+      expect(state.status).toBe("finished");
+      expect(state.winnerId).toBe(p2Id);
+    });
+
+    it("should include turnStartedAt and turnDurationMs in getPublicState", () => {
+      const publicState = game.getPublicState(p1Id);
+      expect(publicState.turnStartedAt).toBeDefined();
+      expect(publicState.turnDurationMs).toBe(10000);
+    });
+
+    it("should reset turnStartedAt when openCell successfully switches turn", () => {
+      const mockBoard = Array.from({ length: 16 }, (_, r) =>
+        Array.from({ length: 16 }, (_, c) => ({
+          row: r,
+          col: c,
+          isBomb: false,
+          isOpen: false,
+          neighborBombs: 0,
+        })),
+      );
+      mockBoard[0][1].isBomb = true;
+      game.setMockBoard(mockBoard);
+
+      const newTime = 50000;
+      game.openCell(p1Id, 0, 0, newTime);
+
+      const state = game.getState();
+      expect(state.currentTurnPlayerId).toBe(p2Id);
+      expect(state.turnStartedAt).toBe(newTime);
     });
   });
 });

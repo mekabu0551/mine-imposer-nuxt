@@ -87,6 +87,20 @@ describe("useGameSocket Composable", () => {
     expect(gameState.value).toEqual(mockState);
   });
 
+  it("should connect to port 8787 by default when running on localhost without serverUrl argument", async () => {
+    const { connect } = useGameSocket("room-test-dev", {
+      id: "p1",
+      name: "Player 1",
+    });
+
+    // happy-dom / browser environment has window.location.hostname = "localhost"
+    connect();
+
+    const ws = MockWebSocketClient.instances[0];
+    expect(ws).toBeDefined();
+    expect(ws.url).toBe("ws://localhost:8787/api/room/room-test-dev/ws");
+  });
+
   it("should send open action when openCell is called", async () => {
     const { connect, openCell } = useGameSocket("room-123", {
       id: "p1",

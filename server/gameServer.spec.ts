@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { MineImposerGame } from "./gameServer";
 import type { PublicGameState } from "../shared/game";
 
@@ -228,5 +228,120 @@ describe("MineImposerGame Durable Object", () => {
     const errorMsg = serverWs1.getLastMessage();
     expect(errorMsg.type).toBe("error");
     expect(errorMsg.code).toBe("TURN_TIMEOUT_EXCEEDED");
+  });
+
+  describe("Server Authority Timer (10s turn limit)", () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("should automatically timeout turn after 10 seconds, deduct life, and switch turn", async () => {
+      const [clientWs1, serverWs1] = createMockWebSocketPair();
+      const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+      gameServer.handleSession(serverWs1 as any);
+      gameServer.handleSession(serverWs2 as any);
+
+      clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+      clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+      // ゲーム開始直後は p1 のターン、ライフ3
+      const initialMsg = serverWs1.getLastMessage();
+      expect(initialMsg.state.currentTurnPlayerId).toBe("p1");
+      expect(initialMsg.state.players[0].lives).toBe(3);
+
+      // 10秒タイマーを経過させる
+      vi.advanceTimersByTime(10000);
+
+      // p1 がタイムアウトし、p1のライフが2になり、手番がp2に強制交代したステートがブロードキャストされること
+      const timeoutMsgP1 = serverWs1.getLastMessage();
+      expect(timeoutMsgP1.type).toBe("state");
+      expect(timeoutMsgP1.state.currentTurnPlayerId).toBe("p2");
+      expect(timeoutMsgP1.state.players[0].lives).toBe(2);
+
+      const timeoutMsgP2 = serverWs2.getLastMessage();
+      expect(timeoutMsgP2.state.currentTurnPlayerId).toBe("p2");
+      expect(timeoutMsgP2.state.players[0].lives).toBe(2);
+
+      // さらに10秒経過させると、次は p2 がタイムアウトし、p2のライフが2になり、手番がp1に戻ること
+      vi.advanceTimersByTime(10000);
+
+      const secondTimeoutMsg = serverWs1.getLastMessage();
+      expect(secondTimeoutMsg.state.currentTurnPlayerId).toBe("p1");
+      expect(secondTimeoutMsg.state.players[1].lives).toBe(2);
+    });
+
+    it("should reset 10-second timer when a player takes an action before timeout", async () => {
+      const [clientWs1, serverWs1] = createMockWebSocketPair();
+      const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+      gameServer.handleSession(serverWs1 as any);
+      gameServer.handleSession(serverWs2 as any);
+
+      clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+      clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+      // 7秒経過
+      vi.advanceTimersByTime(7000);
+
+      // p1 がアクションを実行
+      clientWs1.send(JSON.stringify({ type: "open", row: 0, col: 0 }));
+
+      const actionMsg = serverWs1.getLastMessage();
+      expect(actionMsg.state.currentTurnPlayerId).toBe("p2");
+      expect(actionMsg.state.players[0].lives).toBe(3); // タイムアウトしていないのでライフは3のまま
+
+      // さらに4秒経過 (p1の開始から計11秒だが、p2に切り替わってから4秒しか経っていない)
+      vi.advanceTimersByTime(4000);
+
+      // p2はまだタイムアウトしていないこと
+      const checkMsg = serverWs1.getLastMessage();
+      expect(checkMsg.state.currentTurnPlayerId).toBe("p2");
+      expect(checkMsg.state.players[1].lives).toBe(3);
+
+      // p2のアクションから計10秒 (さらに6秒) 経過
+      vi.advanceTimersByTime(6000);
+
+      // ここでp2がタイムアウトしてライフが2になり、p1に手番が回る
+      const p2TimeoutMsg = serverWs1.getLastMessage();
+      expect(p2TimeoutMsg.state.currentTurnPlayerId).toBe("p1");
+      expect(p2TimeoutMsg.state.players[1].lives).toBe(2);
+    });
+
+    it("should stop timer when game finishes", async () => {
+      const [clientWs1, serverWs1] = createMockWebSocketPair();
+      const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+      gameServer.handleSession(serverWs1 as any);
+      gameServer.handleSession(serverWs2 as any);
+
+      clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+      clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+      // p1 をタイムアウトでライフ0にする（3回タイムアウトさせる）
+      // p1: 10s (lives: 2, turn p2)
+      vi.advanceTimersByTime(10000);
+      // p2: 10s (lives: 2, turn p1)
+      vi.advanceTimersByTime(10000);
+      // p1: 10s (lives: 1, turn p2)
+      vi.advanceTimersByTime(10000);
+      // p2: 10s (lives: 1, turn p1)
+      vi.advanceTimersByTime(10000);
+      // p1: 10s (lives: 0, finished, winner p2)
+      vi.advanceTimersByTime(10000);
+
+      const finishedMsg = serverWs1.getLastMessage();
+      expect(finishedMsg.state.status).toBe("finished");
+      expect(finishedMsg.state.winnerId).toBe("p2");
+
+      const sentCount = serverWs1.sentMessages.length;
+      // さらに時間が経過しても何もメッセージが送信されない（タイマーが止まっている）
+      vi.advanceTimersByTime(20000);
+      expect(serverWs1.sentMessages.length).toBe(sentCount);
+    });
   });
 });

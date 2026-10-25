@@ -29,6 +29,8 @@ export interface GameState {
   winnerId: string | null;
   status: "waiting" | "playing" | "finished";
   flags: { [playerId: string]: string[] };
+  turnStartedAt: number;
+  turnDurationMs: number;
 }
 
 export interface PublicGameState {
@@ -38,6 +40,8 @@ export interface PublicGameState {
   winnerId: string | null;
   status: "waiting" | "playing" | "finished";
   yourPlayerId: string;
+  turnStartedAt: number;
+  turnDurationMs: number;
 }
 
 export interface ActionLogItem {
@@ -65,6 +69,8 @@ export class Game {
   private winnerId: string | null = null;
   private status: "waiting" | "playing" | "finished" = "playing";
   private flags: { [playerId: string]: string[] } = {};
+  private turnStartedAt: number;
+  private turnDurationMs: number = 10000;
 
   constructor(
     p1Id: string,
@@ -72,12 +78,14 @@ export class Game {
     p2Id: string,
     p2Name: string,
     private bombCount: number = 40,
+    startTime: number = Date.now(),
   ) {
     this.players = [
       { id: p1Id, name: p1Name, score: 0, lives: 3 },
       { id: p2Id, name: p2Name, score: 0, lives: 3 },
     ];
     this.currentTurnPlayerId = p1Id;
+    this.turnStartedAt = startTime;
     this.flags[p1Id] = [];
     this.flags[p2Id] = [];
     this.initializeBoard();
@@ -143,6 +151,8 @@ export class Game {
       winnerId: this.winnerId,
       status: this.status,
       flags: this.flags,
+      turnStartedAt: this.turnStartedAt,
+      turnDurationMs: this.turnDurationMs,
     };
   }
 
@@ -176,6 +186,8 @@ export class Game {
       winnerId: this.winnerId,
       status: this.status,
       yourPlayerId: playerId,
+      turnStartedAt: this.turnStartedAt,
+      turnDurationMs: this.turnDurationMs,
     };
   }
 
@@ -183,6 +195,7 @@ export class Game {
     playerId: string,
     row: number,
     col: number,
+    timestamp: number = Date.now(),
   ): { success: boolean; hitBomb: boolean } {
     if (this.status !== "playing") return { success: false, hitBomb: false };
     if (playerId !== this.currentTurnPlayerId) return { success: false, hitBomb: false };
@@ -203,7 +216,7 @@ export class Game {
         this.status = "finished";
         this.winnerId = opponentPlayer.id;
       } else {
-        this.switchTurn();
+        this.switchTurn(timestamp);
       }
       return { success: true, hitBomb: true };
     } else {
@@ -257,7 +270,7 @@ export class Game {
           this.winnerId = null; // 引き分け
         }
       } else {
-        this.switchTurn();
+        this.switchTurn(timestamp);
       }
 
       return { success: true, hitBomb: false };
@@ -291,7 +304,7 @@ export class Game {
       if (action.type === "flag") {
         this.toggleFlag(payload.playerId, action.row, action.col);
       } else if (action.type === "open") {
-        const result = this.openCell(payload.playerId, action.row, action.col);
+        const result = this.openCell(payload.playerId, action.row, action.col, action.timestamp);
         if (!result.success) {
           continue;
         }
@@ -303,6 +316,29 @@ export class Game {
     }
 
     return { success: true, hitBomb: false };
+  }
+
+  public handleTimeout(timestamp: number = Date.now()): {
+    winnerId: string | null;
+    knockout: boolean;
+  } {
+    if (this.status !== "playing") {
+      return { winnerId: this.winnerId, knockout: false };
+    }
+
+    const activePlayer = this.players.find((p) => p.id === this.currentTurnPlayerId)!;
+    const opponentPlayer = this.players.find((p) => p.id !== this.currentTurnPlayerId)!;
+
+    activePlayer.lives -= 1;
+
+    if (activePlayer.lives <= 0) {
+      this.status = "finished";
+      this.winnerId = opponentPlayer.id;
+      return { winnerId: opponentPlayer.id, knockout: true };
+    } else {
+      this.switchTurn(timestamp);
+      return { winnerId: null, knockout: false };
+    }
   }
 
   public toggleFlag(playerId: string, row: number, col: number) {
@@ -324,9 +360,10 @@ export class Game {
     this.flags[playerId] = pFlags;
   }
 
-  private switchTurn() {
+  private switchTurn(timestamp: number = Date.now()) {
     this.currentTurnPlayerId =
       this.currentTurnPlayerId === this.players[0].id ? this.players[1].id : this.players[0].id;
+    this.turnStartedAt = timestamp;
   }
 
   private checkAllSafeOpened(): boolean {

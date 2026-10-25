@@ -10,6 +10,7 @@ export class MineImposerGame {
   private joinedPlayers: { id: string; name: string }[] = [];
   private game: Game | null = null;
   private turnStartTime: number = Date.now();
+  private turnTimer: any = null;
 
   constructor(
     private state?: any,
@@ -67,6 +68,9 @@ export class MineImposerGame {
 
     ws.addEventListener("close", () => {
       this.sessions.delete(ws);
+      if (this.sessions.size === 0) {
+        this.clearTurnTimer();
+      }
     });
   }
 
@@ -86,6 +90,7 @@ export class MineImposerGame {
       this.game = new Game(p1.id, p1.name, p2.id, p2.name, 40);
       this.turnStartTime = Date.now();
       this.broadcastState();
+      this.startTurnTimer();
     } else if (this.game) {
       // 既にゲーム開始済み
       this.sendStateToSession(ws, meta);
@@ -108,6 +113,8 @@ export class MineImposerGame {
         winnerId: null,
         status: "waiting",
         yourPlayerId: playerId,
+        turnStartedAt: 0,
+        turnDurationMs: 10000,
       };
 
       ws.send(JSON.stringify({ type: "state", state: waitingState }));
@@ -119,6 +126,12 @@ export class MineImposerGame {
     this.game.openCell(meta.playerId, row, col);
     this.turnStartTime = Date.now();
     this.broadcastState();
+
+    if (this.game.getState().status === "finished") {
+      this.clearTurnTimer();
+    } else {
+      this.startTurnTimer();
+    }
   }
 
   private handleFlag(meta: SessionMeta, row: number, col: number) {
@@ -151,6 +164,43 @@ export class MineImposerGame {
 
     this.turnStartTime = Date.now();
     this.broadcastState();
+
+    if (this.game.getState().status === "finished") {
+      this.clearTurnTimer();
+    } else {
+      this.startTurnTimer();
+    }
+  }
+
+  private startTurnTimer(durationMs: number = 10000) {
+    this.clearTurnTimer();
+    this.turnTimer = setTimeout(() => {
+      this.handleTurnTimeout();
+    }, durationMs);
+  }
+
+  private clearTurnTimer() {
+    if (this.turnTimer) {
+      clearTimeout(this.turnTimer);
+      this.turnTimer = null;
+    }
+  }
+
+  private handleTurnTimeout() {
+    if (!this.game || this.game.getState().status !== "playing") {
+      this.clearTurnTimer();
+      return;
+    }
+
+    this.game.handleTimeout();
+    this.turnStartTime = Date.now();
+    this.broadcastState();
+
+    if (this.game.getState().status === "playing") {
+      this.startTurnTimer();
+    } else {
+      this.clearTurnTimer();
+    }
   }
 
   private broadcastState() {
