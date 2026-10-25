@@ -28,7 +28,7 @@
 ## Phase 2: コア・プレイループの垂直開発
 **目的**: 盤面操作からターン遷移までの一連のプレイ体験を、フロント・バック両面で完成させる。
 
-1.  **盤面表示と基本操作の準備 (ステップ別実装)**
+1.  **盤面表示と基本操作の準備 (ステップ別実装) [DONE]**
     * **Step 0: ホーム画面UIの実装**
         * 内容: プレイスタイル選択ボタン、ユーザー情報表示。
         * コミット: `feat(ui): implement home screen UI`
@@ -41,7 +41,7 @@
         * 検証: ブラウザ上での実機通信確認。
         * コミット: `feat(ui): interactive board with websocket synchronization`
 
-2.  **判定ロジックと連鎖開封**
+2.  **判定ロジックと連鎖開封 [DONE]**
     * 内容: 0マス連鎖・スコア・ライフ計算(Logic)、ActionLogの検証(DO)、サーバー状態との同期(FE)。
     * コミット: `feat(logic): game logic integration and state sync`
 

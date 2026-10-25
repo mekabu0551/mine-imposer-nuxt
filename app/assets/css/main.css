@@ -1,0 +1,76 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-bg: #0D1117;
+    --color-surface: #161B22;
+    --color-border: #30363D;
+    
+    --color-num-1: #58A6FF;
+    --color-num-2: #3FB950;
+    --color-warning: #F1C40F;
+    --color-danger: #E74C3C;
+    
+    --color-glow: rgba(88, 166, 255, 0.4);
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: #F0F6FC;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    overflow-x: hidden;
+  }
+
+  /* CRTフォント優先 */
+  .font-mono-crt {
+    font-family: 'JetBrains Mono', monospace;
+  }
+}
+
+/* CRT 特殊エフェクト */
+.crt-screen {
+  position: relative;
+  overflow: hidden;
+}
+
+/* 走査線 (Scanline) */
+.crt-screen::before {
+  content: " ";
+  display: block;
+  position: absolute;
+  top: 0; left: 0; bottom: 0; right: 0;
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), 
+              linear-gradient(90deg, rgba(255, 0, 0, 0.04), rgba(0, 255, 0, 0.01), rgba(0, 0, 255, 0.04));
+  background-size: 100% 4px, 6px 100%;
+  z-index: 99;
+  pointer-events: none;
+}
+
+/* CRT ぼかし/光沢 */
+.crt-glow {
+  text-shadow: 0 0 4px var(--color-glow);
+}
+
+.crt-glow-amber {
+  text-shadow: 0 0 4px rgba(241, 196, 15, 0.4);
+}
+
+.crt-glow-red {
+  text-shadow: 0 0 6px rgba(231, 76, 60, 0.6);
+}
+
+.crt-glow-green {
+  text-shadow: 0 0 4px rgba(63, 185, 80, 0.4);
+}
+
+/* 押し込みベゼル */
+.cell-inset {
+  box-shadow: inset 1px 1px 3px rgba(0, 0, 0, 0.8), inset -1px -1px 2px rgba(255, 255, 255, 0.05);
+}
+
+/* 浮き上がりベゼル */
+.cell-outset {
+  box-shadow: inset 1px 1px 1px rgba(255, 255, 255, 0.15), inset -1px -1px 2px rgba(0, 0, 0, 0.6);
+}
