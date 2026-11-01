@@ -21,6 +21,8 @@ describe("GameBoard Component", () => {
     winnerId: null,
     status: "playing",
     yourPlayerId: "p1",
+    turnStartedAt: Date.now(),
+    turnDurationMs: 10000,
   });
 
   it("should render 16x16 (256) cells", () => {
@@ -129,5 +131,52 @@ describe("GameBoard Component", () => {
     });
 
     expect(wrapper.text()).toContain("VICTORY");
+  });
+
+  describe("Authority Turn Timer UI", () => {
+    it("should render countdown timer during active play", () => {
+      const now = Date.now();
+      const gameState = createMockGameState();
+      gameState.turnStartedAt = now - 2000; // 2秒経過 -> 残り8秒
+      gameState.turnDurationMs = 10000;
+
+      const wrapper = mount(GameBoard, {
+        props: { gameState },
+      });
+
+      const timerEl = wrapper.find('[data-testid="turn-timer"]');
+      expect(timerEl.exists()).toBe(true);
+      expect(timerEl.text()).toContain("8");
+    });
+
+    it("should show warning style when remaining time is 3 seconds or less", () => {
+      const now = Date.now();
+      const gameState = createMockGameState();
+      gameState.turnStartedAt = now - 8000; // 8秒経過 -> 残り2秒
+      gameState.turnDurationMs = 10000;
+
+      const wrapper = mount(GameBoard, {
+        props: { gameState },
+      });
+
+      const timerEl = wrapper.find('[data-testid="turn-timer"]');
+      expect(timerEl.classes()).toContain("timer-warning");
+      expect(timerEl.classes()).toContain("animate-pulse");
+      expect(timerEl.classes()).toContain("text-[#E74C3C]");
+    });
+
+    it("should hide timer or show 0s when game is finished", () => {
+      const gameState = createMockGameState();
+      gameState.status = "finished";
+      gameState.winnerId = "p1";
+
+      const wrapper = mount(GameBoard, {
+        props: { gameState },
+      });
+
+      const timerEl = wrapper.find('[data-testid="turn-timer"]');
+      // ゲーム終了時はタイマー非表示、もしくはFINISHED表示
+      expect(timerEl.exists()).toBe(false);
+    });
   });
 });

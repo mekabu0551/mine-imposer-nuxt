@@ -16,8 +16,12 @@ export function useGameSocket(roomId: string, player: GamePlayerInfo) {
     try {
       let baseUrl = serverUrl;
       if (!baseUrl && typeof window !== "undefined") {
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        baseUrl = `${protocol}//${window.location.host}`;
+        if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+          baseUrl = `ws://${window.location.hostname}:8787`;
+        } else {
+          const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+          baseUrl = `${protocol}//${window.location.host}`;
+        }
       }
 
       if (!baseUrl) {

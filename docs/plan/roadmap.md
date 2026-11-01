@@ -45,7 +45,7 @@
     * 内容: 0マス連鎖・スコア・ライフ計算(Logic)、ActionLogの検証(DO)、サーバー状態との同期(FE)。
     * コミット: `feat(logic): game logic integration and state sync`
 
-3.  **ターン管理と権威タイマー**
+3.  **ターン管理と権威タイマー [DONE]**
     * 内容: ターン遷移(Logic)、サーバー側10秒タイマー(DO)、カウントダウン表示と強制転換(FE)。
     * コミット: `feat(game): turn management and authority timer`
 
