@@ -179,17 +179,21 @@ const getNeighborColorClass = (count: number) => {
           </div>
           <!-- 10秒 権威タイマー -->
           <div
-            v-if="gameState.status === 'playing'"
-            data-testid="turn-timer"
+            v-if='gameState.status === "playing"'
             class="flex items-center gap-1.5 font-mono-crt text-xs font-bold tracking-wider px-2 py-0.5 rounded border transition-colors duration-200"
-            :class="[
+            data-testid="turn-timer"
+            :class='[
               isWarning
-                ? 'timer-warning text-[#E74C3C] border-[#E74C3C]/60 bg-[#E74C3C]/10 animate-pulse crt-glow'
-                : 'text-[#58A6FF] border-[#58A6FF]/40 bg-[#58A6FF]/10',
-            ]"
+                ? "timer-warning text-[#E74C3C] border-[#E74C3C]/60 bg-[#E74C3C]/10 animate-pulse crt-glow"
+                : "text-[#58A6FF] border-[#58A6FF]/40 bg-[#58A6FF]/10",
+            ]'
           >
-            <span class="text-[10px] text-gray-400">TIME:</span>
-            <span>{{ remainingSeconds }}s</span>
+            <span class="text-[10px] text-gray-400">
+              TIME:
+            </span>
+            <span>
+              {{ remainingSeconds }}s
+            </span>
           </div>
           <span class="text-[10px] text-gray-500 font-mono-crt tracking-widest">
             STATUS: {{ gameState.status.toUpperCase() }}
