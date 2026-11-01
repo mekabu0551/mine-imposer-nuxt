@@ -288,8 +288,21 @@ describe("MineImposerGame Durable Object", () => {
       // 7秒経過
       vi.advanceTimersByTime(7000);
 
-      // p1 がアクションを実行
-      clientWs1.send(JSON.stringify({ type: "open", row: 0, col: 0 }));
+      // p1 がアクションを実行 (確実に安全なマスを開ける)
+      const internalBoard = (gameServer as any).game.board;
+      let targetRow = 0;
+      let targetCol = 0;
+      for (let r = 0; r < 16; r++) {
+        for (let c = 0; c < 16; c++) {
+          if (!internalBoard[r][c].isBomb) {
+            targetRow = r;
+            targetCol = c;
+            break;
+          }
+        }
+        if (!internalBoard[targetRow][targetCol].isBomb) break;
+      }
+      clientWs1.send(JSON.stringify({ type: "open", row: targetRow, col: targetCol }));
 
       const actionMsg = serverWs1.getLastMessage();
       expect(actionMsg.state.currentTurnPlayerId).toBe("p2");
