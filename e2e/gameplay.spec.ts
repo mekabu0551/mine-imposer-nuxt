@@ -15,7 +15,9 @@ function createMockBoard(): PublicCell[][] {
 }
 
 test.describe("Tactical Gameplay & Board Interaction", () => {
-  test("should render game board, HUD and allow cell open and flag interactions", async ({ page }) => {
+  test("should render game board, HUD and allow cell open and flag interactions", async ({
+    page,
+  }) => {
     let mockBoard = createMockBoard();
     const sentMessages: any[] = [];
 
@@ -55,7 +57,12 @@ test.describe("Tactical Gameplay & Board Interaction", () => {
           const updatedState: PublicGameState = {
             board: mockBoard,
             players: [
-              { id: sentMessages[0].playerId, name: sentMessages[0].playerName, score: 1, lives: 3 },
+              {
+                id: sentMessages[0].playerId,
+                name: sentMessages[0].playerName,
+                score: 1,
+                lives: 3,
+              },
               { id: "rival-agent-id", name: "RivalAgent", score: 0, lives: 3 },
             ],
             currentTurnPlayerId: "rival-agent-id",
@@ -80,7 +87,12 @@ test.describe("Tactical Gameplay & Board Interaction", () => {
           const updatedState: PublicGameState = {
             board: mockBoard,
             players: [
-              { id: sentMessages[0].playerId, name: sentMessages[0].playerName, score: 0, lives: 3 },
+              {
+                id: sentMessages[0].playerId,
+                name: sentMessages[0].playerName,
+                score: 0,
+                lives: 3,
+              },
               { id: "rival-agent-id", name: "RivalAgent", score: 0, lives: 3 },
             ],
             currentTurnPlayerId: sentMessages[0].playerId,
@@ -117,7 +129,9 @@ test.describe("Tactical Gameplay & Board Interaction", () => {
     await cell00.click({ button: "right" });
     // フラグアイコン 🚩 の表示
     await expect(cell00).toContainText("🚩");
-    expect(sentMessages.some((msg) => msg.type === "flag" && msg.row === 0 && msg.col === 0)).toBe(true);
+    expect(sentMessages.some((msg) => msg.type === "flag" && msg.row === 0 && msg.col === 0)).toBe(
+      true,
+    );
 
     // フラッグ解除 (もう一度右クリック)
     await cell00.click({ button: "right" });
@@ -130,7 +144,9 @@ test.describe("Tactical Gameplay & Board Interaction", () => {
     await expect(cell01).toContainText("1");
     // スコアが 1 PTS に加算されていること
     await expect(page.getByText("1 PTS")).toBeVisible();
-    expect(sentMessages.some((msg) => msg.type === "open" && msg.row === 0 && msg.col === 1)).toBe(true);
+    expect(sentMessages.some((msg) => msg.type === "open" && msg.row === 0 && msg.col === 1)).toBe(
+      true,
+    );
 
     // 5. TERMINATE & RETURN ボタンで試合終了・離脱
     const terminateBtn = page.getByTestId("return-home-btn");

@@ -17,7 +17,10 @@ test.describe("Home Screen (Operator Profile & Mode Selection)", () => {
     await expect(page.getByRole("heading", { name: "Operator Profile" })).toBeVisible();
 
     // デフォルトの Identifier (Guest_XXXX) が表示されること
-    const identifier = page.locator("section:has-text('Operator Profile')").locator("span.text-2xl").first();
+    const identifier = page
+      .locator("section:has-text('Operator Profile')")
+      .locator("span.text-2xl")
+      .first();
     await expect(identifier).toBeVisible();
     await expect(identifier).toHaveText(/^Guest_\d+$/);
 
@@ -45,7 +48,10 @@ test.describe("Home Screen (Operator Profile & Mode Selection)", () => {
     await saveBtn.click();
 
     // 更新されたユーザー名が表示されること
-    const updatedIdentifier = page.locator("section:has-text('Operator Profile')").locator("span.text-2xl").first();
+    const updatedIdentifier = page
+      .locator("section:has-text('Operator Profile')")
+      .locator("span.text-2xl")
+      .first();
     await expect(updatedIdentifier).toHaveText("CyberAgent99");
     await expect(editBtn).toBeVisible();
   });
