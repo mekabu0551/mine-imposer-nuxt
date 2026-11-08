@@ -58,7 +58,7 @@
     * 内容: D1スキーマ定義(IaC)、決着時のリザルト保存ロジック(DO -> D1)。
     * コミット: `feat: vertical slice - match result persistence to D1`
 
-2.  **リザルト画面とプロフィール表示**
+2.  **リザルト画面とプロフィール表示 [DONE]**
     * 内容: 試合終了後の遷移(FE)、D1からの戦績・レート取得API(Worker)、統計グラフ表示(FE)。
     * コミット: `feat: vertical slice - result screen and user statistics`
 

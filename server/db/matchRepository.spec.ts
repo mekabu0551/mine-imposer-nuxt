@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type D1DatabaseLike,
   type SaveMatchParams,
+  getUserMatchHistory,
   getUserStats,
   saveMatchResult,
 } from "./matchRepository";
@@ -12,6 +13,7 @@ class MockD1Database implements D1DatabaseLike {
   public usersTable: Map<string, any> = new Map();
   public matchesTable: Map<string, any> = new Map();
   public participantsTable: any[] = [];
+  public mockMatchHistoryResults: any[] = [];
 
   prepare(sql: string) {
     let boundParams: any[] = [];
@@ -33,6 +35,9 @@ class MockD1Database implements D1DatabaseLike {
       },
       async all<T = any>(): Promise<{ results: T[] }> {
         self.executedQueries.push({ sql, params: boundParams });
+        if (sql.includes("FROM match_participants")) {
+          return { results: self.mockMatchHistoryResults as any };
+        }
         return { results: [] };
       },
       async run(): Promise<{ success: boolean }> {
@@ -302,5 +307,54 @@ describe("Match Repository & Result Persistence to D1", () => {
     expect(user).toBeDefined();
     expect(user?.username).toBe("TopPlayer");
     expect(user?.rating).toBe(1750);
+  });
+
+  it("should retrieve recent match history for a user with opponent details", async () => {
+    db.mockMatchHistoryResults = [
+      {
+        match_id: "m-1",
+        winner_id: "user_a",
+        is_ranked: 1,
+        end_reason: "death",
+        created_at: "2026-11-08 10:00:00",
+        user_score: 15,
+        user_rating_diff: 16,
+        user_initial_rating: 1500,
+        opponent_id: "user_b",
+        opponent_name: "RivalBob",
+        opponent_score: 8,
+        opponent_rating: 1520,
+      },
+      {
+        match_id: "m-2",
+        winner_id: "user_c",
+        is_ranked: 1,
+        end_reason: "timeout",
+        created_at: "2026-11-07 15:30:00",
+        user_score: 3,
+        user_rating_diff: -14,
+        user_initial_rating: 1516,
+        opponent_id: "user_c",
+        opponent_name: "MasterCarl",
+        opponent_score: 12,
+        opponent_rating: 1600,
+      },
+    ];
+
+    const history = await getUserMatchHistory(db, "user_a", 10);
+    expect(history).toHaveLength(2);
+
+    expect(history[0].matchId).toBe("m-1");
+    expect(history[0].result).toBe("win");
+    expect(history[0].opponentName).toBe("RivalBob");
+    expect(history[0].userScore).toBe(15);
+    expect(history[0].opponentScore).toBe(8);
+    expect(history[0].ratingDiff).toBe(16);
+    expect(history[0].endReason).toBe("death");
+
+    expect(history[1].matchId).toBe("m-2");
+    expect(history[1].result).toBe("lose");
+    expect(history[1].opponentName).toBe("MasterCarl");
+    expect(history[1].ratingDiff).toBe(-14);
   });
 });

@@ -30,4 +30,19 @@ describe("App Root Component", () => {
     expect(wrapper.text()).toContain("MATCH PROTOCOL");
     expect(wrapper.find('[data-testid="return-home-btn"]').exists()).toBe(true);
   });
+
+  it("should open and close operator profile dossier modal from home screen", async () => {
+    const wrapper = mount(App);
+    const openProfileBtn = wrapper.find('[data-testid="open-profile-btn"]');
+    expect(openProfileBtn.exists()).toBe(true);
+
+    // プロフィールモーダルを開く
+    await openProfileBtn.trigger("click");
+    expect(wrapper.text()).toContain("OPERATOR DOSSIER // SERVICE RECORD");
+
+    // 閉じるボタンをクリック
+    const closeBtn = wrapper.find('[data-testid="close-profile-btn"]');
+    await closeBtn.trigger("click");
+    expect(wrapper.text()).not.toContain("OPERATOR DOSSIER // SERVICE RECORD");
+  });
 });

@@ -55,6 +55,20 @@ export interface SavedMatchResult {
   participants: [SavedParticipantResult, SavedParticipantResult];
 }
 
+export interface UserMatchHistoryItem {
+  matchId: string;
+  winnerId: string | null;
+  isRanked: boolean;
+  endReason: string;
+  createdAt: string;
+  userScore: number;
+  opponentId: string | null;
+  opponentName: string;
+  opponentScore: number;
+  ratingDiff: number;
+  result: "win" | "lose" | "draw";
+}
+
 /**
  * Retrieves a user record by user ID from D1.
  */
@@ -63,6 +77,64 @@ export async function getUserStats(db: D1DatabaseLike, userId: string): Promise<
     "SELECT id, username, auth_provider, auth_id, rating, highest_rating, wins, losses, created_at FROM users WHERE id = ?",
   );
   return stmt.bind(userId).first<UserRecord>();
+}
+
+/**
+ * Retrieves recent match history for a user from D1.
+ */
+export async function getUserMatchHistory(
+  db: D1DatabaseLike,
+  userId: string,
+  limit: number = 10,
+): Promise<UserMatchHistoryItem[]> {
+  const sql = `
+    SELECT
+      m.id AS match_id,
+      m.winner_id,
+      m.is_ranked,
+      m.end_reason,
+      m.created_at,
+      mp_user.final_score AS user_score,
+      mp_user.rating_diff AS user_rating_diff,
+      mp_user.initial_rating AS user_initial_rating,
+      mp_opp.user_id AS opponent_id,
+      COALESCE(opp.username, 'Unknown Opponent') AS opponent_name,
+      COALESCE(mp_opp.final_score, 0) AS opponent_score,
+      COALESCE(mp_opp.initial_rating, 1500) AS opponent_rating
+    FROM match_participants mp_user
+    JOIN matches m ON m.id = mp_user.match_id
+    LEFT JOIN match_participants mp_opp ON mp_opp.match_id = m.id AND mp_opp.user_id != mp_user.user_id
+    LEFT JOIN users opp ON opp.id = mp_opp.user_id
+    WHERE mp_user.user_id = ?
+    ORDER BY m.created_at DESC
+    LIMIT ?
+  `;
+
+  const query = db.prepare(sql).bind(userId, limit);
+  const { results } = await query.all<any>();
+
+  return results.map((row) => {
+    let result: "win" | "lose" | "draw" = "draw";
+    if (row.winner_id === userId) {
+      result = "win";
+    } else if (row.winner_id) {
+      result = "lose";
+    }
+
+    return {
+      matchId: row.match_id,
+      winnerId: row.winner_id,
+      isRanked: Boolean(row.is_ranked),
+      endReason: row.end_reason,
+      createdAt: row.created_at,
+      userScore: row.user_score,
+      opponentId: row.opponent_id || null,
+      opponentName: row.opponent_name || "Unknown Opponent",
+      opponentScore: row.opponent_score ?? 0,
+      ratingDiff: row.user_rating_diff ?? 0,
+      result,
+    };
+  });
 }
 
 /**

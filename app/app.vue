@@ -1,18 +1,26 @@
 <script setup lang="ts">
-import { ref, shallowRef, computed } from "vue";
+import { ref, shallowRef, computed, onMounted } from "vue";
 import HomeScreen from "./components/HomeScreen.vue";
 import GameBoard from "./components/GameBoard.vue";
+import ResultScreen from "./components/ResultScreen.vue";
+import ProfileModal from "./components/ProfileModal.vue";
 import { useUser } from "./composables/useUser";
 import { useGameSocket } from "./composables/useGameSocket";
 
-const { user } = useUser();
+const { user, fetchStats } = useUser();
 const currentPage = ref<"home" | "random" | "private">("home");
 const currentRoomId = ref<string>("room-casual-1");
 const activeSocket = shallowRef<ReturnType<typeof useGameSocket> | null>(null);
+const showProfileModal = ref<boolean>(false);
 
 const isPlaying = computed(() => activeSocket.value?.gameState.value?.status === "playing");
+const isGameFinished = computed(() => activeSocket.value?.gameState.value?.status === "finished");
 const currentGameState = computed(() => activeSocket.value?.gameState.value ?? null);
 const isSocketConnected = computed(() => activeSocket.value?.isConnected.value ?? false);
+
+onMounted(() => {
+  fetchStats();
+});
 
 const handleSelectMode = (mode: "random" | "private") => {
   currentPage.value = mode;
@@ -27,10 +35,23 @@ const handleSelectMode = (mode: "random" | "private") => {
   socket.connect();
 };
 
+const handleRematch = () => {
+  const mode = currentPage.value === "private" ? "private" : "random";
+  activeSocket.value?.disconnect();
+  activeSocket.value = null;
+  handleSelectMode(mode);
+};
+
 const backToHome = () => {
   activeSocket.value?.disconnect();
   activeSocket.value = null;
   currentPage.value = "home";
+  fetchStats();
+};
+
+const handleOpenProfile = () => {
+  fetchStats();
+  showProfileModal.value = true;
 };
 
 const handleOpen = (payload: { row: number; col: number }) => {
@@ -44,7 +65,11 @@ const handleFlag = (payload: { row: number; col: number }) => {
 
 <template>
   <div class="min-h-screen bg-[#0D1117] text-[#F0F6FC]">
-    <HomeScreen v-if='currentPage === "home"' @select-mode="handleSelectMode" />
+    <HomeScreen
+      v-if='currentPage === "home"'
+      @open-profile="handleOpenProfile"
+      @select-mode="handleSelectMode"
+    />
     <div
       v-else
       class="min-h-screen flex flex-col justify-center items-center crt-screen p-4 font-sans"
@@ -65,7 +90,7 @@ const handleFlag = (payload: { row: number; col: number }) => {
       </template>
       <!-- 待機中または接続中の画面 -->
       <div
-        v-else
+        v-else-if="!isGameFinished"
         class="bg-[#161B22] border border-[#30363D] p-8 rounded-lg max-w-md w-full text-center cell-inset"
       >
         <h2 class="text-xl font-bold text-[#F1C40F] crt-glow-amber mb-4 uppercase font-mono-crt">
@@ -74,7 +99,9 @@ const handleFlag = (payload: { row: number; col: number }) => {
         <div class="my-6 flex flex-col items-center">
           <div class="w-12 h-12 border-4 border-[#58A6FF]/20 border-t-[#58A6FF] rounded-full animate-spin mb-4"></div>
           <p class="text-sm font-mono-crt text-gray-300">
-            {{ isSocketConnected ? "WAITING FOR OPPONENT..." : "CONNECTING TO TACTICAL SERVER..." }}
+            {{
+              isSocketConnected ? "WAITING FOR OPPONENT..." : "CONNECTING TO TACTICAL SERVER..."
+            }}
           </p>
           <p class="text-xs text-gray-500 font-mono-crt mt-1">
             ROOM: {{ currentRoomId }}
@@ -90,5 +117,15 @@ const handleFlag = (payload: { row: number; col: number }) => {
         </button>
       </div>
     </div>
+    <!-- 決着時のリザルト画面 -->
+    <ResultScreen
+      v-if="isGameFinished && currentGameState"
+      :game-state="currentGameState"
+      @home="backToHome"
+      @rematch="handleRematch"
+      @view-profile="showProfileModal = true"
+    />
+    <!-- プロフィール・戦績モーダル -->
+    <ProfileModal v-if="showProfileModal" :user="user" @close="showProfileModal = false" />
   </div>
 </template>
