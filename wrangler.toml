@@ -7,6 +7,11 @@ bindings = [
   { name = "GAME_SERVER", class_name = "MineImposerGame" }
 ]
 
+[[d1_databases]]
+binding = "DB"
+database_name = "mine-imposer-db"
+database_id = "local-d1-mine-imposer-db"
+
 [[migrations]]
 tag = "v1"
 new_classes = ["MineImposerGame"]

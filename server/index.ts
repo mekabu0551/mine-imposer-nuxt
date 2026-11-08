@@ -1,10 +1,11 @@
-import type { DurableObjectNamespace } from "@cloudflare/workers-types";
+import type { D1Database, DurableObjectNamespace } from "@cloudflare/workers-types";
 import { MineImposerGame } from "./gameServer";
 
 export { MineImposerGame };
 
 export interface Env {
   GAME_SERVER: DurableObjectNamespace;
+  DB?: D1Database;
 }
 
 export async function fetchHandler(request: Request, env: Env): Promise<Response> {

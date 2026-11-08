@@ -1,4 +1,5 @@
 import { Game, type PublicGameState } from "../shared/game";
+import { saveMatchResult, type SavedMatchResult } from "./db/matchRepository";
 
 interface SessionMeta {
   playerId?: string;
@@ -11,6 +12,9 @@ export class MineImposerGame {
   private game: Game | null = null;
   private turnStartTime: number = Date.now();
   private turnTimer: any = null;
+  private matchId: string = "match_" + Math.random().toString(36).substring(2, 10);
+  private isPersisted: boolean = false;
+  private matchResult: SavedMatchResult | null = null;
 
   constructor(
     private state?: any,
@@ -121,14 +125,14 @@ export class MineImposerGame {
     }
   }
 
-  private handleOpen(meta: SessionMeta, row: number, col: number) {
+  private async handleOpen(meta: SessionMeta, row: number, col: number) {
     if (!this.game || !meta.playerId) return;
     this.game.openCell(meta.playerId, row, col);
     this.turnStartTime = Date.now();
     this.broadcastState();
 
     if (this.game.getState().status === "finished") {
-      this.clearTurnTimer();
+      await this.checkGameFinish();
     } else {
       this.startTurnTimer();
     }
@@ -140,7 +144,7 @@ export class MineImposerGame {
     this.broadcastState();
   }
 
-  private handleCommit(ws: WebSocket, meta: SessionMeta, actions: any[]) {
+  private async handleCommit(ws: WebSocket, meta: SessionMeta, actions: any[]) {
     if (!this.game || !meta.playerId) return;
 
     const result = this.game.applyCommit(
@@ -166,7 +170,7 @@ export class MineImposerGame {
     this.broadcastState();
 
     if (this.game.getState().status === "finished") {
-      this.clearTurnTimer();
+      await this.checkGameFinish();
     } else {
       this.startTurnTimer();
     }
@@ -186,7 +190,7 @@ export class MineImposerGame {
     }
   }
 
-  private handleTurnTimeout() {
+  private async handleTurnTimeout() {
     if (!this.game || this.game.getState().status !== "playing") {
       this.clearTurnTimer();
       return;
@@ -199,7 +203,36 @@ export class MineImposerGame {
     if (this.game.getState().status === "playing") {
       this.startTurnTimer();
     } else {
+      await this.checkGameFinish();
+    }
+  }
+
+  private async checkGameFinish() {
+    if (!this.game) return;
+    const state = this.game.getState();
+    if (state.status === "finished") {
       this.clearTurnTimer();
+      if (!this.isPersisted) {
+        this.isPersisted = true;
+        if (this.env?.DB) {
+          try {
+            const [p1, p2] = state.players;
+            this.matchResult = await saveMatchResult(this.env.DB, {
+              matchId: this.matchId,
+              winnerId: state.winnerId,
+              endReason: (state.endReason as any) || "death",
+              isRanked: true,
+              players: [
+                { id: p1.id, name: p1.name, score: p1.score },
+                { id: p2.id, name: p2.name, score: p2.score },
+              ],
+            });
+          } catch (err) {
+            console.error("Failed to persist match result to D1:", err);
+          }
+        }
+      }
+      this.broadcastState();
     }
   }
 
@@ -212,6 +245,9 @@ export class MineImposerGame {
   private sendStateToSession(ws: WebSocket, meta: SessionMeta) {
     if (!this.game || !meta.playerId) return;
     const publicState = this.game.getPublicState(meta.playerId);
+    if (this.matchResult) {
+      publicState.matchResult = this.matchResult;
+    }
     ws.send(JSON.stringify({ type: "state", state: publicState }));
   }
 
