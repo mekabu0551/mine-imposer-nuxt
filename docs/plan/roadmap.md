@@ -62,7 +62,7 @@
     * 内容: 試合終了後の遷移(FE)、D1からの戦績・レート取得API(Worker)、統計グラフ表示(FE)。
     * コミット: `feat: vertical slice - result screen and user statistics`
 
-3.  **リーダーボード機能**
+3.  **リーダーボード機能 [DONE]**
     * 内容: 全ユーザーのレート集計(Worker/D1)、ランキング画面(FE)。
     * コミット: `feat: vertical slice - global leaderboard implementation`
 

@@ -14,6 +14,7 @@ import {
 defineEmits<{
   (e: "select-mode", mode: "random" | "private"): void;
   (e: "open-profile"): void;
+  (e: "open-leaderboard"): void;
 }>();
 
 const { user, updateUsername } = useUser();
@@ -65,20 +66,36 @@ const cancelEdit = () => {
                 Operator Profile
               </h2>
             </div>
-            <button
-              class="px-2.5 py-1 bg-[#0D1117] hover:bg-[#30363D] border border-[#30363D] hover:border-[#58A6FF] rounded text-xs font-mono-crt text-gray-300 hover:text-[#58A6FF] transition flex items-center gap-1.5"
-              data-testid="open-profile-btn"
-              title="View Service Record"
-              type="button"
-              @click='$emit("open-profile")'
-            >
-              <span>
-                DOSSIER
-              </span>
-              <span class="text-[#58A6FF]">
-                ▶
-              </span>
-            </button>
+            <div class="flex items-center gap-2">
+              <button
+                class="px-2.5 py-1 bg-[#0D1117] hover:bg-[#30363D] border border-[#30363D] hover:border-[#F1C40F] rounded text-xs font-mono-crt text-gray-300 hover:text-[#F1C40F] transition flex items-center gap-1.5"
+                data-testid="open-leaderboard-btn"
+                title="View Global Rankings"
+                type="button"
+                @click='$emit("open-leaderboard")'
+              >
+                <span>
+                  RANKINGS
+                </span>
+                <span class="text-[#F1C40F]">
+                  ★
+                </span>
+              </button>
+              <button
+                class="px-2.5 py-1 bg-[#0D1117] hover:bg-[#30363D] border border-[#30363D] hover:border-[#58A6FF] rounded text-xs font-mono-crt text-gray-300 hover:text-[#58A6FF] transition flex items-center gap-1.5"
+                data-testid="open-profile-btn"
+                title="View Service Record"
+                type="button"
+                @click='$emit("open-profile")'
+              >
+                <span>
+                  DOSSIER
+                </span>
+                <span class="text-[#58A6FF]">
+                  ▶
+                </span>
+              </button>
+            </div>
           </div>
           <!-- ユーザー名表示/編集 -->
           <div class="mb-8">

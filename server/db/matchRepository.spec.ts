@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   type D1DatabaseLike,
   type SaveMatchParams,
+  getLeaderboard,
   getUserMatchHistory,
   getUserStats,
   saveMatchResult,
@@ -14,6 +15,7 @@ class MockD1Database implements D1DatabaseLike {
   public matchesTable: Map<string, any> = new Map();
   public participantsTable: any[] = [];
   public mockMatchHistoryResults: any[] = [];
+  public mockLeaderboardResults: any[] = [];
 
   prepare(sql: string) {
     let boundParams: any[] = [];
@@ -37,6 +39,9 @@ class MockD1Database implements D1DatabaseLike {
         self.executedQueries.push({ sql, params: boundParams });
         if (sql.includes("FROM match_participants")) {
           return { results: self.mockMatchHistoryResults as any };
+        }
+        if (sql.includes("FROM users") && sql.includes("ORDER BY rating DESC")) {
+          return { results: self.mockLeaderboardResults as any };
         }
         return { results: [] };
       },
@@ -356,5 +361,40 @@ describe("Match Repository & Result Persistence to D1", () => {
     expect(history[1].result).toBe("lose");
     expect(history[1].opponentName).toBe("MasterCarl");
     expect(history[1].ratingDiff).toBe(-14);
+  });
+
+  it("should retrieve global leaderboard sorted by rating with assigned ranks and win rates", async () => {
+    db.mockLeaderboardResults = [
+      {
+        id: "user_top",
+        username: "CyberGeneral",
+        rating: 1850,
+        highest_rating: 1900,
+        wins: 30,
+        losses: 5,
+        win_rate: 86,
+      },
+      {
+        id: "user_mid",
+        username: "Vanguard",
+        rating: 1600,
+        highest_rating: 1620,
+        wins: 15,
+        losses: 10,
+        win_rate: 60,
+      },
+    ];
+
+    const leaderboard = await getLeaderboard(db, 10);
+    expect(leaderboard).toHaveLength(2);
+
+    expect(leaderboard[0].rank).toBe(1);
+    expect(leaderboard[0].username).toBe("CyberGeneral");
+    expect(leaderboard[0].rating).toBe(1850);
+    expect(leaderboard[0].winRate).toBe(86);
+
+    expect(leaderboard[1].rank).toBe(2);
+    expect(leaderboard[1].username).toBe("Vanguard");
+    expect(leaderboard[1].rating).toBe(1600);
   });
 });

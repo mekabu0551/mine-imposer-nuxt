@@ -1,5 +1,5 @@
 import type { D1Database, DurableObjectNamespace } from "@cloudflare/workers-types";
-import { getUserMatchHistory, getUserStats } from "./db/matchRepository";
+import { getLeaderboard, getUserMatchHistory, getUserStats } from "./db/matchRepository";
 import { MineImposerGame } from "./gameServer";
 
 export { MineImposerGame };
@@ -65,6 +65,25 @@ export async function fetchHandler(request: Request, env: Env): Promise<Response
           winRate,
         },
         recentMatches,
+      }),
+      { headers: corsHeaders },
+    );
+  }
+
+  // グローバルリーダーボード取得 API
+  // パス例: /api/leaderboard?limit=50
+  if (url.pathname === "/api/leaderboard") {
+    let leaderboard: any[] = [];
+    if (env.DB) {
+      const limitParam = parseInt(url.searchParams.get("limit") || "50", 10);
+      const limit = isNaN(limitParam) ? 50 : Math.min(Math.max(limitParam, 1), 100);
+      leaderboard = await getLeaderboard(env.DB as any, limit);
+    }
+
+    return new Response(
+      JSON.stringify({
+        success: true,
+        leaderboard,
       }),
       { headers: corsHeaders },
     );

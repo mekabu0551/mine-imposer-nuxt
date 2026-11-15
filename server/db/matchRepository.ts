@@ -69,6 +69,17 @@ export interface UserMatchHistoryItem {
   result: "win" | "lose" | "draw";
 }
 
+export interface LeaderboardEntry {
+  rank: number;
+  id: string;
+  username: string;
+  rating: number;
+  highestRating: number;
+  wins: number;
+  losses: number;
+  winRate: number;
+}
+
 /**
  * Retrieves a user record by user ID from D1.
  */
@@ -135,6 +146,42 @@ export async function getUserMatchHistory(
       result,
     };
   });
+}
+
+/**
+ * Retrieves the global leaderboard sorted by rating descending from D1.
+ */
+export async function getLeaderboard(
+  db: D1DatabaseLike,
+  limit: number = 50,
+): Promise<LeaderboardEntry[]> {
+  const sql = `
+    SELECT
+      id,
+      username,
+      rating,
+      highest_rating,
+      wins,
+      losses,
+      ROUND(CASE WHEN (wins + losses) > 0 THEN (wins * 100.0 / (wins + losses)) ELSE 0 END) AS win_rate
+    FROM users
+    ORDER BY rating DESC, wins DESC, created_at ASC
+    LIMIT ?
+  `;
+
+  const query = db.prepare(sql).bind(limit);
+  const { results } = await query.all<any>();
+
+  return results.map((row, index) => ({
+    rank: index + 1,
+    id: row.id,
+    username: row.username,
+    rating: row.rating,
+    highestRating: row.highest_rating,
+    wins: row.wins,
+    losses: row.losses,
+    winRate: Number(row.win_rate ?? 0),
+  }));
 }
 
 /**

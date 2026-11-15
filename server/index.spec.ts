@@ -135,4 +135,87 @@ describe("Worker entry point", () => {
     expect(body.user.winRate).toBe(0);
     expect(body.recentMatches).toHaveLength(0);
   });
+
+  it("should return global leaderboard for GET /api/leaderboard", async () => {
+    const mockDb = {
+      prepare: vi.fn((sql: string) => {
+        let boundParams: any[] = [];
+        const stmt = {
+          bind: vi.fn((...params: any[]) => {
+            boundParams = params;
+            return stmt;
+          }),
+          first: vi.fn(async () => null),
+          all: vi.fn(async () => {
+            if (sql.includes("FROM users") && sql.includes("ORDER BY rating DESC")) {
+              return {
+                results: [
+                  {
+                    id: "u-1",
+                    username: "ApexPlayer",
+                    rating: 1950,
+                    highest_rating: 2000,
+                    wins: 45,
+                    losses: 5,
+                    win_rate: 90,
+                  },
+                  {
+                    id: "u-2",
+                    username: "Tactician",
+                    rating: 1800,
+                    highest_rating: 1820,
+                    wins: 25,
+                    losses: 10,
+                    win_rate: 71,
+                  },
+                ],
+              };
+            }
+            return { results: [] };
+          }),
+          run: vi.fn(async () => ({ success: true })),
+        };
+        return stmt;
+      }),
+      batch: vi.fn(async () => []),
+    };
+
+    const mockEnv = {
+      GAME_SERVER: {} as any,
+      DB: mockDb,
+    };
+
+    const request = new Request("http://localhost/api/leaderboard?limit=10");
+    const response = await worker.fetch(request, mockEnv as any);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.leaderboard).toHaveLength(2);
+    expect(body.leaderboard[0]).toEqual({
+      rank: 1,
+      id: "u-1",
+      username: "ApexPlayer",
+      rating: 1950,
+      highestRating: 2000,
+      wins: 45,
+      losses: 5,
+      winRate: 90,
+    });
+    expect(body.leaderboard[1].rank).toBe(2);
+  });
+
+  it("should return empty leaderboard when DB is undefined for GET /api/leaderboard", async () => {
+    const mockEnv = {
+      GAME_SERVER: {} as any,
+    };
+
+    const request = new Request("http://localhost/api/leaderboard");
+    const response = await worker.fetch(request, mockEnv as any);
+
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.success).toBe(true);
+    expect(body.leaderboard).toEqual([]);
+  });
 });

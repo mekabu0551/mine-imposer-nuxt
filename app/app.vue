@@ -4,14 +4,23 @@ import HomeScreen from "./components/HomeScreen.vue";
 import GameBoard from "./components/GameBoard.vue";
 import ResultScreen from "./components/ResultScreen.vue";
 import ProfileModal from "./components/ProfileModal.vue";
+import LeaderboardModal from "./components/LeaderboardModal.vue";
 import { useUser } from "./composables/useUser";
+import { useLeaderboard } from "./composables/useLeaderboard";
 import { useGameSocket } from "./composables/useGameSocket";
 
 const { user, fetchStats } = useUser();
+const {
+  leaderboard,
+  loading: leaderboardLoading,
+  error: leaderboardError,
+  fetchLeaderboard,
+} = useLeaderboard();
 const currentPage = ref<"home" | "random" | "private">("home");
 const currentRoomId = ref<string>("room-casual-1");
 const activeSocket = shallowRef<ReturnType<typeof useGameSocket> | null>(null);
 const showProfileModal = ref<boolean>(false);
+const showLeaderboardModal = ref<boolean>(false);
 
 const isPlaying = computed(() => activeSocket.value?.gameState.value?.status === "playing");
 const isGameFinished = computed(() => activeSocket.value?.gameState.value?.status === "finished");
@@ -54,6 +63,11 @@ const handleOpenProfile = () => {
   showProfileModal.value = true;
 };
 
+const handleOpenLeaderboard = () => {
+  fetchLeaderboard();
+  showLeaderboardModal.value = true;
+};
+
 const handleOpen = (payload: { row: number; col: number }) => {
   activeSocket.value?.openCell(payload.row, payload.col);
 };
@@ -67,6 +81,7 @@ const handleFlag = (payload: { row: number; col: number }) => {
   <div class="min-h-screen bg-[#0D1117] text-[#F0F6FC]">
     <HomeScreen
       v-if='currentPage === "home"'
+      @open-leaderboard="handleOpenLeaderboard"
       @open-profile="handleOpenProfile"
       @select-mode="handleSelectMode"
     />
@@ -127,5 +142,15 @@ const handleFlag = (payload: { row: number; col: number }) => {
     />
     <!-- プロフィール・戦績モーダル -->
     <ProfileModal v-if="showProfileModal" :user="user" @close="showProfileModal = false" />
+    <!-- グローバルランキング・リーダーボードモーダル -->
+    <LeaderboardModal
+      v-if="showLeaderboardModal"
+      :current-user-id="user.id"
+      :error="leaderboardError"
+      :leaderboard="leaderboard"
+      :loading="leaderboardLoading"
+      @close="showLeaderboardModal = false"
+      @refresh="fetchLeaderboard"
+    />
   </div>
 </template>

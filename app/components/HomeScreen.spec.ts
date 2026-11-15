@@ -58,4 +58,12 @@ describe("HomeScreen.vue", () => {
     await profileBtn.trigger("click");
     expect(wrapper.emitted("open-profile")).toBeTruthy();
   });
+
+  it("emits open-leaderboard event when rankings button is clicked", async () => {
+    const wrapper = mount(HomeScreen);
+    const leaderboardBtn = wrapper.find('[data-testid="open-leaderboard-btn"]');
+    expect(leaderboardBtn.exists()).toBe(true);
+    await leaderboardBtn.trigger("click");
+    expect(wrapper.emitted("open-leaderboard")).toBeTruthy();
+  });
 });
