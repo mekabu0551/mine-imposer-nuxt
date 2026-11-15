@@ -13,6 +13,7 @@ import {
 
 defineEmits<{
   (e: "select-mode", mode: "random" | "private"): void;
+  (e: "open-profile"): void;
 }>();
 
 const { user, updateUsername } = useUser();
@@ -57,11 +58,27 @@ const cancelEdit = () => {
       <!-- 左パネル: ユーザープロフィール -->
       <section class="flex-1 bg-[#161B22] border border-[#30363D] rounded-lg p-6 flex flex-col justify-between cell-inset">
         <div>
-          <div class="flex items-center gap-3 border-b border-[#30363D] pb-4 mb-6">
-            <UserIcon class="w-6 h-6 text-[#58A6FF] crt-glow" />
-            <h2 class="text-lg font-mono-crt uppercase text-[#58A6FF] tracking-wider">
-              Operator Profile
-            </h2>
+          <div class="flex items-center justify-between border-b border-[#30363D] pb-4 mb-6">
+            <div class="flex items-center gap-3">
+              <UserIcon class="w-6 h-6 text-[#58A6FF] crt-glow" />
+              <h2 class="text-lg font-mono-crt uppercase text-[#58A6FF] tracking-wider">
+                Operator Profile
+              </h2>
+            </div>
+            <button
+              class="px-2.5 py-1 bg-[#0D1117] hover:bg-[#30363D] border border-[#30363D] hover:border-[#58A6FF] rounded text-xs font-mono-crt text-gray-300 hover:text-[#58A6FF] transition flex items-center gap-1.5"
+              data-testid="open-profile-btn"
+              title="View Service Record"
+              type="button"
+              @click='$emit("open-profile")'
+            >
+              <span>
+                DOSSIER
+              </span>
+              <span class="text-[#58A6FF]">
+                ▶
+              </span>
+            </button>
           </div>
           <!-- ユーザー名表示/編集 -->
           <div class="mb-8">

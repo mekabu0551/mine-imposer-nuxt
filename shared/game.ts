@@ -31,6 +31,7 @@ export interface GameState {
   flags: { [playerId: string]: string[] };
   turnStartedAt: number;
   turnDurationMs: number;
+  endReason?: "score" | "death" | "timeout" | "surrender" | null;
 }
 
 export interface PublicGameState {
@@ -42,6 +43,8 @@ export interface PublicGameState {
   yourPlayerId: string;
   turnStartedAt: number;
   turnDurationMs: number;
+  endReason?: "score" | "death" | "timeout" | "surrender" | null;
+  matchResult?: any;
 }
 
 export interface ActionLogItem {
@@ -71,6 +74,7 @@ export class Game {
   private flags: { [playerId: string]: string[] } = {};
   private turnStartedAt: number;
   private turnDurationMs: number = 10000;
+  private endReason: "score" | "death" | "timeout" | "surrender" | null = null;
 
   constructor(
     p1Id: string,
@@ -153,6 +157,7 @@ export class Game {
       flags: this.flags,
       turnStartedAt: this.turnStartedAt,
       turnDurationMs: this.turnDurationMs,
+      endReason: this.endReason,
     };
   }
 
@@ -188,6 +193,7 @@ export class Game {
       yourPlayerId: playerId,
       turnStartedAt: this.turnStartedAt,
       turnDurationMs: this.turnDurationMs,
+      endReason: this.endReason,
     };
   }
 
@@ -215,6 +221,7 @@ export class Game {
       if (activePlayer.lives <= 0) {
         this.status = "finished";
         this.winnerId = opponentPlayer.id;
+        this.endReason = "death";
       } else {
         this.switchTurn(timestamp);
       }
@@ -262,6 +269,7 @@ export class Game {
       // ゲーム終了判定（すべての安全なマスが開かれたか）
       if (this.checkAllSafeOpened()) {
         this.status = "finished";
+        this.endReason = "score";
         if (this.players[0].score > this.players[1].score) {
           this.winnerId = this.players[0].id;
         } else if (this.players[1].score > this.players[0].score) {
@@ -334,6 +342,7 @@ export class Game {
     if (activePlayer.lives <= 0) {
       this.status = "finished";
       this.winnerId = opponentPlayer.id;
+      this.endReason = "timeout";
       return { winnerId: opponentPlayer.id, knockout: true };
     } else {
       this.switchTurn(timestamp);

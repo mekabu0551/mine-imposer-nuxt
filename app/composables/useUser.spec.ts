@@ -41,4 +41,58 @@ describe("useUser composable", () => {
     expect(user.value.losses).toBe(1);
     expect(user.value.rating).toBe(initialRating - 12);
   });
+
+  it("should fetch user statistics and match history from API", async () => {
+    const { user, fetchStats } = useUser();
+
+    // Mock global fetch
+    const mockResponse = {
+      success: true,
+      user: {
+        id: user.value.id,
+        username: "AcePilot",
+        rating: 1620,
+        highest_rating: 1680,
+        wins: 14,
+        losses: 6,
+        winRate: 70,
+      },
+      recentMatches: [
+        {
+          matchId: "m_100",
+          winnerId: user.value.id,
+          isRanked: true,
+          endReason: "score",
+          createdAt: "2026-11-08 14:00:00",
+          userScore: 20,
+          opponentId: "opp_1",
+          opponentName: "Rival",
+          opponentScore: 15,
+          ratingDiff: 18,
+          result: "win",
+        },
+      ],
+    };
+
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = async () =>
+      new Response(JSON.stringify(mockResponse), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      });
+
+    try {
+      await fetchStats("http://localhost:8787");
+      expect(user.value.username).toBe("AcePilot");
+      expect(user.value.rating).toBe(1620);
+      expect(user.value.highest_rating).toBe(1680);
+      expect(user.value.wins).toBe(14);
+      expect(user.value.losses).toBe(6);
+      expect(user.value.winRate).toBe(70);
+      expect(user.value.recentMatches).toHaveLength(1);
+      expect(user.value.recentMatches![0].result).toBe("win");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
 });

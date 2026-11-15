@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import { flushPromises } from "@vue/test-utils";
 import { MineImposerGame } from "./gameServer";
 import type { PublicGameState } from "../shared/game";
 
@@ -288,8 +289,21 @@ describe("MineImposerGame Durable Object", () => {
       // 7秒経過
       vi.advanceTimersByTime(7000);
 
-      // p1 がアクションを実行
-      clientWs1.send(JSON.stringify({ type: "open", row: 0, col: 0 }));
+      // p1 がアクションを実行 (確実に安全なマスを開ける)
+      const internalBoard = (gameServer as any).game.board;
+      let targetRow = 0;
+      let targetCol = 0;
+      for (let r = 0; r < 16; r++) {
+        for (let c = 0; c < 16; c++) {
+          if (!internalBoard[r][c].isBomb) {
+            targetRow = r;
+            targetCol = c;
+            break;
+          }
+        }
+        if (!internalBoard[targetRow][targetCol].isBomb) break;
+      }
+      clientWs1.send(JSON.stringify({ type: "open", row: targetRow, col: targetCol }));
 
       const actionMsg = serverWs1.getLastMessage();
       expect(actionMsg.state.currentTurnPlayerId).toBe("p2");
@@ -342,6 +356,125 @@ describe("MineImposerGame Durable Object", () => {
       // さらに時間が経過しても何もメッセージが送信されない（タイマーが止まっている）
       vi.advanceTimersByTime(20000);
       expect(serverWs1.sentMessages.length).toBe(sentCount);
+    });
+  });
+
+  describe("D1 Persistence Integration", () => {
+    let mockDb: any;
+    let savedBatches: any[];
+
+    beforeEach(() => {
+      savedBatches = [];
+      mockDb = {
+        prepare: vi.fn((sql: string) => {
+          let boundParams: any[] = [];
+          const stmt = {
+            bind: vi.fn((...params: any[]) => {
+              boundParams = params;
+              return stmt;
+            }),
+            first: vi.fn(async () => null),
+            all: vi.fn(async () => ({ results: [] })),
+            run: vi.fn(async () => ({ success: true })),
+            _sql: sql,
+            _params: () => boundParams,
+          };
+          return stmt;
+        }),
+        batch: vi.fn(async (stmts: any[]) => {
+          savedBatches.push(
+            stmts.map((s) => ({
+              sql: s._sql,
+              params: s._params ? s._params() : [],
+            })),
+          );
+          return stmts.map(() => ({ success: true }));
+        }),
+      };
+
+      mockEnv = { DB: mockDb };
+      gameServer = new MineImposerGame(mockState, mockEnv);
+    });
+
+    it("should persist match result to D1 when game finishes by bomb knockout (death)", async () => {
+      const [clientWs1, serverWs1] = createMockWebSocketPair();
+      const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+      gameServer.handleSession(serverWs1 as any);
+      gameServer.handleSession(serverWs2 as any);
+
+      clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+      clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+      const game = gameServer.getGame()!;
+      // p1 のライフを1にして爆弾を踏ませる
+      const internalState = game.getState();
+      internalState.players[0].lives = 1;
+
+      let bombRow = -1;
+      let bombCol = -1;
+      for (let r = 0; r < 16; r++) {
+        for (let c = 0; c < 16; c++) {
+          if (internalState.board[r][c].isBomb) {
+            bombRow = r;
+            bombCol = c;
+            break;
+          }
+        }
+        if (bombRow !== -1) break;
+      }
+
+      // p1 が爆弾を開封してノックアウト敗北
+      clientWs1.send(JSON.stringify({ type: "open", row: bombRow, col: bombCol }));
+      await flushPromises();
+
+      // D1 へのバッチ保存が実行されたことを検証
+      expect(mockDb.batch).toHaveBeenCalledTimes(1);
+      const batchQueries = savedBatches[0];
+      const matchInsert = batchQueries.find((q: any) => q.sql.includes("INSERT INTO matches"));
+      expect(matchInsert).toBeDefined();
+      expect(matchInsert.params[1]).toBe("p2"); // winnerId
+      expect(matchInsert.params[3]).toBe("death"); // endReason
+
+      // 完了ステートがクライアントにブロードキャストされたこと
+      const lastMsg = serverWs1.getLastMessage();
+      expect(lastMsg.state.status).toBe("finished");
+      expect(lastMsg.state.winnerId).toBe("p2");
+      expect(lastMsg.state.endReason).toBe("death");
+      expect(lastMsg.state.matchResult).toBeDefined();
+    });
+
+    it("should persist match result to D1 when game finishes by timeout knockout (timeout)", async () => {
+      vi.useFakeTimers();
+      const [clientWs1, serverWs1] = createMockWebSocketPair();
+      const [clientWs2, serverWs2] = createMockWebSocketPair();
+
+      gameServer.handleSession(serverWs1 as any);
+      gameServer.handleSession(serverWs2 as any);
+
+      clientWs1.send(JSON.stringify({ type: "join", playerId: "p1", playerName: "Alice" }));
+      clientWs2.send(JSON.stringify({ type: "join", playerId: "p2", playerName: "Bob" }));
+
+      // p1 をタイムアウトでノックアウト敗北させる
+      const game = gameServer.getGame()!;
+      game.getState().players[0].lives = 1;
+
+      vi.advanceTimersByTime(10000);
+      await flushPromises();
+
+      expect(mockDb.batch).toHaveBeenCalledTimes(1);
+      const batchQueries = savedBatches[0];
+      const matchInsert = batchQueries.find((q: any) => q.sql.includes("INSERT INTO matches"));
+      expect(matchInsert).toBeDefined();
+      expect(matchInsert.params[1]).toBe("p2");
+      expect(matchInsert.params[3]).toBe("timeout");
+
+      const lastMsg = serverWs1.getLastMessage();
+      expect(lastMsg.state.status).toBe("finished");
+      expect(lastMsg.state.winnerId).toBe("p2");
+      expect(lastMsg.state.endReason).toBe("timeout");
+
+      vi.useRealTimers();
     });
   });
 });

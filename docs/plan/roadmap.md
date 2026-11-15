@@ -54,11 +54,11 @@
 ## Phase 3: 永続化とユーザー統計
 **目的**: 試合結果を保存し、ユーザーが自分の成長を確認できるようにする。
 
-1.  **D1へのハイスコア・試合ログ保存**
+1.  **D1へのハイスコア・試合ログ保存 [DONE]**
     * 内容: D1スキーマ定義(IaC)、決着時のリザルト保存ロジック(DO -> D1)。
     * コミット: `feat: vertical slice - match result persistence to D1`
 
-2.  **リザルト画面とプロフィール表示**
+2.  **リザルト画面とプロフィール表示 [DONE]**
     * 内容: 試合終了後の遷移(FE)、D1からの戦績・レート取得API(Worker)、統計グラフ表示(FE)。
     * コミット: `feat: vertical slice - result screen and user statistics`
 

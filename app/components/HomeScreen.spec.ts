@@ -50,4 +50,12 @@ describe("HomeScreen.vue", () => {
     await privateMatchBtn.trigger("click");
     expect(wrapper.emitted("select-mode")?.[1]).toEqual(["private"]);
   });
+
+  it("emits open-profile event when dossier button is clicked", async () => {
+    const wrapper = mount(HomeScreen);
+    const profileBtn = wrapper.find('[data-testid="open-profile-btn"]');
+    expect(profileBtn.exists()).toBe(true);
+    await profileBtn.trigger("click");
+    expect(wrapper.emitted("open-profile")).toBeTruthy();
+  });
 });
